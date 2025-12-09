@@ -1,0 +1,56 @@
+#include "CTD.h"
+
+extern volatile int g_ctd_status;
+extern volatile int g_ctd_power_flag;
+
+int main1()
+{
+    int ret = -1;
+
+    g_ctd_power_flag = 1;
+
+    pthread_t ctd_tid;
+    
+    pthread_create(&ctd_tid, NULL, (void *)CTD_TaskThread, NULL);
+    while(1);
+
+#if 0
+
+    /* 1.CTD初始化  */
+   ret = CTD_Init();
+   if(ret < 0)
+   {
+        printf("CTD初始化错误\n");
+        return 0;
+   }
+
+    /*  2.测试读取  */
+    char ctd_raw_data[64];
+    while(g_ctd_status && execCount > 0)
+    {
+        if(execCount-- < 0)
+        {
+            CTD_Close();
+        }
+        else
+        {
+            printf("execCount dump:%d\n", execCount);
+        }
+
+        sleep(1);
+        if(CTD_ReadRawData(ctd_raw_data, sizeof(ctd_raw_data)) == 0) 
+        {
+            printf("Received valid data: %s\n", ctd_raw_data);
+            CTD_ParseData(ctd_raw_data);
+            CTD_PrintAllData();
+        }
+        else
+        {
+            printf("Read failed: %s\n", ctd_raw_data);
+        }
+    }
+#endif
+
+    return 0;
+}
+

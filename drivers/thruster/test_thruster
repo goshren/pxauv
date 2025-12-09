@@ -1,0 +1,186 @@
+/************************************************************************************
+ * 文件名：test_thruster.c
+ * 描述：推进器控制模块测试程序
+ * 最后修改时间：2025-06-26
+ ************************************************************************************/
+
+#include "Thruster.h"
+#include "../../sys/SerialPort/SerialPort.h"
+
+void print_menu() {
+    printf("\n=== 推进器控制测试菜单 ===\n");
+    printf("1. 初始化推进器\n");
+    printf("2. 发送上电配置指令(必须执行一次)\n");
+    printf("3. 启动心跳线程\n");
+    printf("4. 停止心跳线程\n");
+    printf("5. 上浮控制\n");
+    printf("6. 下沉控制\n");
+    printf("7. 前进控制\n");
+    printf("8. 后退控制\n");
+    printf("9. 左转控制\n");
+    printf("10. 右转控制\n");
+    printf("11. 停止所有电机\n");
+    printf("12. 高级控制接口测试\n");
+    printf("0. 退出程序\n");
+    printf("=========================\n");
+    printf("请选择操作: ");
+}
+
+struct termios old_opt;
+extern int g_thruster_fd;
+
+int main() {
+    int choice = 0;
+    int level = 0;
+    char cmd[3] = {0};
+    pthread_t heartbeat_tid = 0;
+    int initialized = 0;
+
+    printf("推进器控制模块测试程序\n");
+
+    while(1) {
+        print_menu();
+        scanf("%d", &choice);
+
+        switch(choice) {
+            case 1: // 初始化推进器
+                if(Thruster_Init_default() == 0) {
+                    printf("推进器初始化成功\n");
+                    initialized = 1;
+                } else {
+                    printf("推进器初始化失败\n"); 
+                }
+                break;
+
+            case 2: //发送上电配置指令(必须执行一次)
+                if(initialized) {
+                    if(Thruster_SendInitConfig() == 0)
+                    {
+                        printf("发送上电配置指令成功\n");
+                    }
+                    else{
+                        printf("发送上电配置指令失败\n");
+                    }
+                }
+                break;
+
+            case 3: // 启动心跳
+                if(initialized) {
+                    heartbeat_tid = Thruster_StartHeartbeatThread();
+                    if(heartbeat_tid != 0) {
+                        printf("心跳线程已启动\n");
+                        sleep(5); // 等待心跳稳定
+                    } else {
+                        printf("心跳线程启动失败\n");
+                    }
+                } else {
+                    printf("请先初始化推进器\n");
+                }
+                break;
+
+            case 4: // 停止心跳
+                if(heartbeat_tid != 0) {
+                    Thruster_StopHeartbeatThread(heartbeat_tid);
+                    heartbeat_tid = 0;
+                    printf("心跳线程已停止\n");
+                } else {
+                    printf("心跳线程未运行\n");
+                }
+                break;
+
+            case 5: // 上浮
+                printf("输入档位(1-5): ");
+                scanf("%d", &level);
+                if(level >= 1 && level <= 5) {
+                    Thruster_Floating(level);
+                    printf("执行上浮，档位%d\n", level);
+                } else {
+                    printf("无效档位\n");
+                }
+                break;
+
+            case 6: // 下沉
+                printf("输入档位(1-5): ");
+                scanf("%d", &level);
+                if(level >= 1 && level <= 5) {
+                    Thruster_Sinking(level);
+                    printf("执行下沉，档位%d\n", level);
+                } else {
+                    printf("无效档位\n");
+                }
+                break;
+
+            case 7: // 前进
+                printf("输入档位(1-5): ");
+                scanf("%d", &level);
+                if(level >= 1 && level <= 5) {
+                    Thruster_Forward(level);
+                    printf("执行前进，档位%d\n", level);
+                } else {
+                    printf("无效档位\n");
+                }
+                break;
+
+            case 8: // 后退
+                printf("输入档位(1-5): ");
+                scanf("%d", &level);
+                if(level >= 1 && level <= 5) {
+                    Thruster_Backward(level);
+                    printf("执行后退，档位%d\n", level);
+                } else {
+                    printf("无效档位\n");
+                }
+                break;
+
+            case 9: // 左转
+                printf("输入档位(1-5): ");
+                scanf("%d", &level);
+                if(level >= 1 && level <= 5) {
+                    Thruster_TurnLeft(level);
+                    printf("执行左转，档位%d\n", level);
+                } else {
+                    printf("无效档位\n");
+                }
+                break;
+
+            case 10: // 右转
+                printf("输入档位(1-5): ");
+                scanf("%d", &level);
+                if(level >= 1 && level <= 5) {
+                    Thruster_TurnRight(level);
+                    printf("执行右转，档位%d\n", level);
+                } else {
+                    printf("无效档位\n");
+                }
+                break;
+
+            case 11: // 停止
+                Thruster_Stop();
+                printf("所有电机已停止\n");
+                break;
+
+            case 12: // 高级控制
+                printf("输入指令(UP,DN,LT,RT,FD,BD,ZE): ");
+                scanf("%2s", cmd);
+                printf("输入档位(1-5, 0表示停止): ");
+                scanf("%d", &level);
+                Thruster_ControlHandle(cmd, level);
+                printf("执行指令: %s, 档位%d\n", cmd, level);
+                break;
+
+            case 0: // 退出
+                if(heartbeat_tid != 0) {
+                    Thruster_StopHeartbeatThread(heartbeat_tid);
+                }
+                Thruster_Cleanup();
+                printf("程序已退出\n");
+                exit(0);
+
+            default:
+                printf("无效选择\n");
+                break;
+        }
+    }
+
+    return 0;
+}

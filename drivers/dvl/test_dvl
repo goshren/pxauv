@@ -1,0 +1,21 @@
+#include "dvl.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <termios.h>
+#include <unistd.h>
+#include <sys/select.h>
+
+
+int main1()
+{
+    int ret = -1;
+
+
+
+    pthread_t ctd_tid;
+    
+    pthread_create(&ctd_tid, NULL, (void *)DVL_TaskThread, NULL);
+    while(1);
+
+}
+    

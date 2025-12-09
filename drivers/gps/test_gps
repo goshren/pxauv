@@ -1,0 +1,19 @@
+#include "GPS.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <termios.h>
+#include <unistd.h>
+#include <sys/select.h>
+
+
+int main()
+{
+    int ret = -1;
+
+    pthread_t ctd_tid;
+    
+    pthread_create(&ctd_tid, NULL, (void *)TaskThread_GPS, NULL);
+    while(1);
+
+}
+    

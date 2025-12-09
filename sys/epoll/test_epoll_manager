@@ -1,0 +1,87 @@
+#include "epoll_listener.h"
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <signal.h>
+
+static volatile sig_atomic_t running = 1;
+
+void handle_signal(int sig) {
+    running = 0;
+}
+
+// 示例回调函数
+void fd_event_handler(int fd, void* user_data) {
+    char buf[256];
+    ssize_t n = read(fd, buf, sizeof(buf));
+    
+    if (n > 0) {
+        printf("从fd %d 读取到 %zd 字节数据\n", fd, n);
+        // 处理数据...
+    } else if (n == 0) {
+        printf("fd %d 已关闭\n", fd);
+        epoll_listener_remove_fd(fd);
+        close(fd);
+    } else {
+        perror("读取失败");
+    }
+}
+
+int main() {
+    signal(SIGINT, handle_signal);
+    signal(SIGTERM, handle_signal);
+    
+    // 1. 初始化监听器
+    if (!epoll_listener_init()) {
+        fprintf(stderr, "初始化监听器失败\n");
+        return 1;
+    }
+
+    // 2. 打开一些文件描述符(示例)
+    int fd1 = open("/dev/input/mice", O_RDONLY | O_NONBLOCK);
+    int fd2 = open("/dev/input/event1", O_RDONLY | O_NONBLOCK);
+    
+    if (fd1 < 0 || fd2 < 0) {
+        perror("打开设备失败");
+        epoll_listener_cleanup();
+        return 1;
+    }
+
+    // 3. 添加文件描述符到监听
+    if (!epoll_listener_add_fd(fd1, fd_event_handler, NULL) ||
+        !epoll_listener_add_fd(fd2, fd_event_handler, NULL)) {
+        fprintf(stderr, "添加文件描述符失败\n");
+        close(fd1);
+        close(fd2);
+        epoll_listener_cleanup();
+        return 1;
+    }
+
+    // 4. 启动监听线程
+    if (!epoll_listener_start()) {
+        fprintf(stderr, "启动监听线程失败\n");
+        close(fd1);
+        close(fd2);
+        epoll_listener_cleanup();
+        return 1;
+    }
+
+    printf("监听线程已启动，按Ctrl+C退出...\n");
+    
+    // 5. 主循环
+    while (running) {
+        // 主线程可以做其他工作...
+        sleep(1);
+    }
+
+    // 6. 清理资源
+    printf("\n正在关闭...\n");
+    epoll_listener_remove_fd(fd1);
+    epoll_listener_remove_fd(fd2);
+    close(fd1);
+    close(fd2);
+    epoll_listener_cleanup();
+    
+    printf("程序已退出\n");
+    return 0;
+}
