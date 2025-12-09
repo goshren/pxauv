@@ -5,7 +5,6 @@
 *************************************************************************************/
 
 #include "Database.h"
-#include "../../drivers/rangeSonar/RangeSonar.h"
 
 /************************************************************************************
  									全局变量
@@ -36,9 +35,6 @@ const char Sql_createDTUTable[64] = {"create table DTU(time char, recv char);"};
 
 /*	Sonar*/
 const char Sql_createSonarTable[64] = {"create table Sonar(time char, bearing float, distance float);"};
-
-/*	RangeSonar*/
-const char Sql_createRangeSonarTable[64] = {"create table RangeSonar(time char, height int);"};
 
 /*	ConnectHost	*/
 const char Sql_createTCPRecvTable[64] = {"create table TCP(time char, recv char);"};
@@ -101,11 +97,6 @@ sqlite3 *Database_init(sqlite3 *db)
 		else if(sqlite3_exec(db, Sql_createSonarTable, NULL, NULL, &errmsg) != SQLITE_OK)
 		{
 			fprintf(stderr, "database init error:create Sonar table error: %s\n", errmsg);
-			break;
-		}
-		else if(sqlite3_exec(db, Sql_createRangeSonarTable, NULL, NULL, &errmsg) != SQLITE_OK)
-		{
-			fprintf(stderr, "database init error:create RangeSonar table error: %s\n", errmsg);
 			break;
 		}
 		else if(sqlite3_exec(db, Sql_createTCPRecvTable, NULL, NULL, &errmsg) != SQLITE_OK)
@@ -456,57 +447,6 @@ int Database_insertSonarData(sqlite3 *db, sonarDataPack_t *psensor)
 	sqlite3_free(errmsg);
 	return 0;
 }
-
-#if 1
-/*******************************************************************
- * 函数原型:int Database_insertRangeSonarData(sqlite3 *db, rangeSonarDataPack_t *psensor)
- * 函数简介:保存RangeSonar采集的数据到数据库
- * 函数参数:db:数据库指针，psensor:RangeSonar数据结构体指针
- * 函数返回值: 成功返回0，失败返回-1
- *****************************************************************/
-int Database_insertRangeSonarData(sqlite3 *db, rangeSonarDataPack_t *psensor)
-{
-	if(db == NULL)
-	{
-		fprintf(stderr, "database insert rangeSonar data error: db NULL\n");
-		return -1;
-	}
-	else if(psensor == NULL)
-	{
-		fprintf(stderr, "database insert rangeSonar data error: psensor NULL\n");
-		return -1;
-	}
-
-	char *Sql_insert = NULL;
-	if((Sql_insert = (char*)malloc(sizeof(char) * 256)) == NULL)
-	{
-		fprintf(stderr, "database insert rangeSonar data error: malloc failed\n");
-		return -1;
-	}
-
-	time_t now = time(NULL);	
-	struct tm *nowtime = localtime(&now);
-	char time[32] = {0};
-    sprintf(time, "%02d:%02d:%02d",nowtime->tm_hour,nowtime->tm_min,nowtime->tm_sec);
-
-	sprintf(Sql_insert,"insert into RangeSonar values('%s',%d);", time, psensor->distanceFirstObstacle);
-
-	char *errmsg = NULL;
-	if(sqlite3_exec(db, Sql_insert, NULL, NULL, &errmsg) != SQLITE_OK)
-	{
-		fprintf(stderr, "database insert rangeSonar data error:%s", errmsg);
-		free(Sql_insert);
-		sqlite3_free(errmsg);
-		return -1;
-	}
-
-	free(Sql_insert);
-	sqlite3_free(errmsg);
-	return 0;
-}
-
-#endif
-
 /*******************************************************************
  * 函数原型:int Database_insertTCPRecvData(sqlite3 *db, char *tcpRecvData)
  * 函数简介:保存TCP接收的的数据到数据库

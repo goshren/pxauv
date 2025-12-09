@@ -27,7 +27,6 @@
 #include "../../drivers/dtu/DTU.h"
 #include "../../drivers/usbl/USBL.h"
 #include "../../drivers/sonar/Sonar.h"
-#include "../../drivers/rangeSonar/RangeSonar.h"
 
 
 /************************************************************************************
@@ -62,9 +61,6 @@ int Database_insertDTURecvData(sqlite3 *db, unsigned char *dtuRecvData);
 
 /*	Sonar	*/
 int Database_insertSonarData(sqlite3 *db, sonarDataPack_t *psensor);
-
-/*	RangeSonar	*/
-int Database_insertRangeSonarData(sqlite3 *db, rangeSonarDataPack_t *psensor);
 
 /*	ConnectHost*/
 int Database_insertTCPRecvData(sqlite3 *db, char *tcpRecvData);

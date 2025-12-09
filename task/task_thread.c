@@ -30,9 +30,6 @@
 /*  10.Sonar*/
 #include "../drivers/sonar/Sonar.h"
 
-/*  11.测距声呐 */
-#include "../drivers/rangeSonar/RangeSonar.h"
-
 /*  12.TCP  */
 #include "../sys/socket/TCP/tcp.h"
 
@@ -52,7 +49,6 @@ extern volatile int g_dvl_status;           //DVL是否可工作的状态
 extern volatile int g_dtu_status;          //数传电台是否可工作的状态
 extern volatile int g_usbl_status;         //USBL是否可工作的状态
 extern volatile int g_sonar_status;         //Sonar是否可工作的状态
-extern volatile int g_rangeSonar_status;         //测距声呐是否可工作的状态
 
 
 extern maincabinDataPack_t g_maincabin_data_pack;       //主控舱数据结构体
@@ -62,7 +58,6 @@ extern dvlDataPack_t g_dvlDataPack;                                             
 extern usblDataPack_t g_usbl_dataPack;                                      //USBL数据结构体
 extern unsigned char g_dtu_recvbuf[MAX_DTU_RECV_DATA_SIZE] ;       //数传电台数据数组
 extern sonarDataPack_t g_sonar_dataPack;                                //Sonar数据结构体
-extern rangeSonarDataPack_t g_rangeSonar_data_pack;     //测距声呐数据结构体
 
 /************************************************************************************
  									全局变量(外界可以使用)
@@ -95,9 +90,6 @@ pthread_mutex_t g_usbl_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t g_sonar_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t g_sonar_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static pthread_cond_t g_rangeSonar_cond = PTHREAD_COND_INITIALIZER;
-static pthread_mutex_t g_rangeSonar_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 pthread_cond_t g_connecthost_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t g_connecthost_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -109,7 +101,6 @@ static volatile int g_dvl_work_flag = -1;      //-1为不工作，1为开始工�
 static volatile int g_dtu_work_flag = -1;      //-1为不工作，1为开始工作
 static volatile int g_usbl_work_flag = -1;      //-1为不工作，1为开始工作
 static volatile int g_sonar_work_flag = -1;      //-1为不工作，1为开始工作
-static volatile int g_rangeSonar_work_flag = -1;      //-1为不工作，1为开始工作
 static volatile int g_connecthost_work_flag = -1;      //-1为不工作，1为开始工作
 
 /*******************************************************************
@@ -221,12 +212,6 @@ void *Task_Epoll_WorkThread(void *arg)
                 if(fd == USBL_getFD()){
                     g_usbl_work_flag = 1;
                     pthread_cond_signal(&g_usbl_cond);
-                }
-
-                /*  测距声呐    */
-                if(fd == RangeSonar_getFD()){
-                    g_rangeSonar_work_flag = 1;
-                    pthread_cond_signal(&g_rangeSonar_cond);
                 }
 
                 /*  上位机连接  */
@@ -940,82 +925,4 @@ void *Task_Sonar_WorkThread(void *arg)
     printf("Sonar工作线程已退出\n");
     return NULL;
 }
-
-
-
- /*******************************************************************
- * 函数原型:int Task_RangeSonar_Init(void)
- * 函数简介:测距声呐相关任务初始化
- * 函数参数:无
- * 函数返回值: 成功返回0，失败返回-1
- *****************************************************************/ 
-int Task_RangeSonar_Init(void)
-{
-    /*  1.测距声呐初始化   */
-    if(RangeSonar_Init() < 0)
-    {
-        return -1;
-    }
-
-    /*  2.发送上电配置    */
-    if(RangeSonar_SendInitConfig() < 0)
-    {
-        return -1;
-    }
-
-    /*  3.加入Epoll监听文件描述符   */
-    if(epoll_manager_add_fd(g_epoll_manager_fd ,RangeSonar_getFD(), EPOLLIN) < 0)
-    {
-        return -1;
-    }
-
-    g_rangeSonar_status = 1;
-
-    /*  3.创建工作线程  */
-    pthread_t tid;
-    if(pthread_create(&tid, NULL, (void *)Task_RangeSonar_WorkThread, NULL) < 0)
-    {
-        printf("Task_RangeSonar_Init:RangeSonar工作线程创建错误\n");
-        return -1;
-    }
-    usleep(100000);//等待线程创建
-
-    return 0;
-}
-
-/*******************************************************************
- * 函数原型:void *Task_RangeSonar_WorkThread(void *arg)
- * 函数简介:测距声呐工作线程
- * 函数参数:无
- * 函数返回值: NULL
- *****************************************************************/
-void *Task_RangeSonar_WorkThread(void *arg)
-{
-    while(g_rangeSonar_status == 1)
-    {
-        pthread_mutex_lock(&g_rangeSonar_mutex);
-        pthread_cond_wait(&g_rangeSonar_cond, &g_rangeSonar_mutex);
-        if(g_rangeSonar_work_flag == 1)        //开始工作
-        {
-            if(RangeSonar_ReadRawData() == 0)
-            {
-                if(RangeSonar_ParseData() == 0)
-                {
-                    char *msg = RangeSonar_DataPackageProcessing();
-                    int len = strlen(msg);
-                    //TCP_SendData(g_connecthost_tcpser_accept_sock_fd, (unsigned char *)msg, len);
-                    //printf("RangeSonar_Send:%s\n", msg);
-                    memset(msg, 0, len);
-
-                    Database_insertRangeSonarData(g_database, &g_rangeSonar_data_pack);
-                }
-            }
-            g_rangeSonar_work_flag = -1;
-            pthread_mutex_unlock(&g_rangeSonar_mutex);
-        }
-    }
-
-    return NULL;
-}
-
 

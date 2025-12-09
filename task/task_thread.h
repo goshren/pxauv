@@ -48,10 +48,6 @@ void *Task_USBL_WorkThread(void *arg);
 int Task_Sonar_Init(void);
 void *Task_Sonar_WorkThread(void *arg);
 
-/*	测距声呐相关任务初始化	*/
-int Task_RangeSonar_Init(void);
-void *Task_RangeSonar_WorkThread(void *arg);
-
 
 #endif
 

@@ -50,14 +50,6 @@ int main(int argc, const char *argv[])
     }
     printf("GPS初始化完毕.......\n"); 
     
-    /*  7.测距声呐   */
-    /*
-    if(Task_RangeSonar_Init() < 0)
-    {
-        goto end;
-    }
-    printf("测距声呐初始化完毕.......\n");
-    */
     sleep(60*40);
 
     while(1);
