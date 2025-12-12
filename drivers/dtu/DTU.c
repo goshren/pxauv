@@ -8,6 +8,7 @@
 #include "../../sys/SerialPort/SerialPort.h"
 #include "../../sys/epoll/epoll_manager.h"
 #include "../thruster/Thruster.h"
+#include "../../drivers/maincabin/MainCabin.h"
 
 /************************************************************************************
  									外部变量
@@ -211,8 +212,10 @@ ssize_t DTU_RecvData(void)
  *****************************************************************/ 
 void DTU_ParseData(void)
 {
-    /*		解析电机推进器指令		*/
-    if(g_dtu_recvbuf[0] == '#' && g_dtu_recvbuf[7] == '#' && g_dtu_recvbuf[3] == '$' && g_dtu_recvbuf[4] == '$')	//指令判断处理
+    int recvDataSize = strlen((char *)g_dtu_recvbuf); // 获取接收数据的长度
+
+    /*		解析电机推进器指令 (#CMD$$)		*/
+    if(g_dtu_recvbuf[0] == '#' && g_dtu_recvbuf[7] == '#' && g_dtu_recvbuf[3] == '$' && g_dtu_recvbuf[4] == '$')
     {
         char ctl_cmd[3] = {0}; 
         int ctl_arg = 0;
@@ -220,6 +223,31 @@ void DTU_ParseData(void)
         sscanf((char *)&g_dtu_recvbuf[1], "%2s", ctl_cmd);
         sscanf((char *)&g_dtu_recvbuf[5], "%2d", &ctl_arg);
         Thruster_ControlHandle(ctl_cmd, ctl_arg);
+    }
+    /*		[新增] 解析释放器打开和关闭指令 (@cmd@)			*/
+    else if(g_dtu_recvbuf[0] == '@' && g_dtu_recvbuf[recvDataSize-1] == '@')
+    {
+        // 判断具体的控制指令
+        if(strstr((char *)g_dtu_recvbuf, "open1") != NULL)
+        {
+            MainCabin_SwitchPowerDevice(Releaser1, 1);
+            printf("DTU指令: 释放器1已打开\n");
+        }
+        else if(strstr((char *)g_dtu_recvbuf, "open2") != NULL)
+        {
+            MainCabin_SwitchPowerDevice(Releaser2, 1);
+            printf("DTU指令: 释放器2已打开\n");
+        }
+        else if(strstr((char *)g_dtu_recvbuf, "close1") != NULL)
+        {
+            MainCabin_SwitchPowerDevice(Releaser1, -1);
+            printf("DTU指令: 释放器1已关闭\n");
+        }
+        else if(strstr((char *)g_dtu_recvbuf, "close2") != NULL)
+        {
+            MainCabin_SwitchPowerDevice(Releaser2, -1);
+            printf("DTU指令: 释放器2已关闭\n");
+        }
     }
 }
 

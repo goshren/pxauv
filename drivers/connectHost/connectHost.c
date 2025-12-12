@@ -222,6 +222,7 @@ void *ConnectHost_Thread_TcpServer(void)
                         MainCabin_PowerOffAllDeviceExceptReleaser();
                     }
                 }
+                
 
 				/*		解析释放器打开和关闭			*/
                 else if(g_tcpserRecvBuf[0] == '@' && g_tcpserRecvBuf[recvDataSize-1] == '@')
