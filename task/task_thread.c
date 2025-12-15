@@ -36,7 +36,8 @@
 /*  13.sqlite3  */
 #include "../sys/sqlite3_db/Database.h"
 
-#include "task_mission.h" // 引用头文件
+// [新增] 必须包含这个头文件，否则会出现 implicit declaration 警告
+#include "../control/depth_control.h"
 
 /************************************************************************************
  									外部变量
@@ -490,6 +491,26 @@ void *Task_ConnectHost_WorkThread(void *arg)
                         }
                     }
 
+                    /* 新增：解析定深控制指令  */
+                // 假设 g_tcpserRecvBuf 是接收缓冲区
+                else if(g_tcpserRecvBuf[0] == '!' && g_tcpserRecvBuf[recvDataSize-1] == '!')
+                    {
+                    if(strncmp(g_tcpserRecvBuf, "!AD:OFF!", 8) == 0)
+                        {
+                         DepthControl_Stop(); // 停止定深函数
+                            printf("定深模式已关闭\n");
+                        }
+                    else if(strncmp(g_tcpserRecvBuf, "!AD:", 4) == 0)
+                        {
+                         double target = 0.0;
+                             if(sscanf(g_tcpserRecvBuf, "!AD:%lf!", &target) == 1)
+                                {
+                                DepthControl_Start(target); // 启动定深函数
+                                    printf("收到定深指令，目标深度: %.2f 米\n", target);
+                                }
+                        }
+                    }
+
                     g_connecthost_work_flag = -1;
                 }
 
@@ -629,8 +650,10 @@ void *Task_CTD_WorkThread(void *arg)
                     int len = strlen(msg);
                     TCP_SendData(g_connecthost_tcpser_accept_sock_fd, (unsigned char *)msg, len);
                     memset(msg, 0, len);
-
                     Database_insertCTDData(g_database, &g_ctdDataPack);
+                    // 2. [新增] 触发定深控制逻辑
+                    // 只有当数据是最新的时候才计算一次控制，完美匹配 1Hz 频率
+                    DepthControl_Loop(g_ctdDataPack.depth);
                 }
             }
             g_ctd_work_flag = -1;

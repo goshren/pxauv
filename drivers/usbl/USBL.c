@@ -10,7 +10,6 @@
 #include "../thruster/Thruster.h"
 /* 引入主控舱头文件，用于控制释放器 */
 #include "../../drivers/maincabin/MainCabin.h" 
-#include "../../task/task_mission.h"  // <--- [新增] 引入任务头文件
 
 /************************************************************************************
  									外部变量
@@ -313,73 +312,9 @@ int USBL_ParseData(void)
             tempHexArrey[len] = '\0'; 
 
             memcpy(g_usbl_dataPack.recvdata, tempHexArrey, sizeof(tempHexArrey));
-
+            
             // [调试] 打印最终解码出的 Payload (重点观察这里)
             printf("[USBL PAYLOAD] 解码明文: [%s]\n", tempHexArrey);
-    // 处理完毕后可以直接返回，避免后续逻辑干扰
-    // return 0; // 可选
-        }
-
-        /* ==========================================================
- * [新增] 8字节预编程任务协议解析
- * 协议1: 安全中断 -> "&&&&&&&&" (全0x26)
- * 协议2: 任务指令 -> [&][A1][T1][A2][T2][A3][T3][&]
- * ========================================================== */
-if(tempHexArrey[0] == '&') 
-{
-    // 1. 长度校验
-    if (len != 8) { 
-        printf("[USBL ERR] 数据包长度错误: %d (应为8)\n", len);
-    }
-    else 
-    {
-        // 2. 优先检查：是否为安全中断指令 "&&&&&&&&"
-        // 检查方法：判断这8个字节是否全部等于 '&' (0x26)
-        int is_emergency_stop = 1;
-        for(int k=0; k<8; k++) {
-            if(tempHexArrey[k] != '&') {
-                is_emergency_stop = 0;
-                break;
-            }
-        }
-
-        if (is_emergency_stop) 
-        {
-            // === 执行安全中断 ===
-            printf("[USBL SAFETY] 收到 '&&&&&&&&' 指令 -> 立即中断任务！\n");
-            Task_Mission_Stop(); 
-            // 此时直接返回，不处理后续逻辑
-            return 0; 
-        }
-
-        // 3. 如果不是全&，则检查是否为正常的任务指令 (首尾是&)
-        if (tempHexArrey[7] == '&') 
-        {
-            printf("[USBL MISSION] 校验通过，解析新任务...\n");
-            
-            MissionStep_t new_steps[MISSION_STEP_COUNT];
-            memset(new_steps, 0, sizeof(new_steps));
-            
-            // 提取 3 个动作 (索引: 1, 3, 5)
-            for(int i=0; i<MISSION_STEP_COUNT; i++) {
-                int idx = 1 + i*2;
-                new_steps[i].action   = tempHexArrey[idx];
-                new_steps[i].duration = tempHexArrey[idx + 1];
-
-                if(new_steps[i].action > 6) new_steps[i].action = 0; // 防错
-            }
-
-            // 启动新任务
-            Task_Mission_UpdateAndStart(new_steps);
-        }
-        else 
-        {
-            printf("[USBL ERR] 尾部校验失败: 0x%02X\n", tempHexArrey[7]);
-        }
-    }
-}
-
-
 
             /* A. 解析电机指令 */
             if(tempHexArrey[0] == '#' && tempHexArrey[7] == '#' && tempHexArrey[3] == '$' && tempHexArrey[4] == '$')

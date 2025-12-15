@@ -4,7 +4,6 @@
 #include "../task/task_thread.h"
 /* 引入主控舱驱动头文件，以便调用上电函数 */
 #include "../drivers/maincabin/MainCabin.h"
-#include "../task/task_mission.h" // 引入新头文件
 
 int main(int argc, const char *argv[])
 {
@@ -53,13 +52,6 @@ int main(int argc, const char *argv[])
         goto end;
     }
     printf("GPS初始化完毕.......\n"); 
-
-    /* [新增] 7. 预编程自主任务初始化 */
-    if(Task_Mission_Init() < 0)
-    {
-        goto end;
-    }
-    printf("任务模块初始化完毕......\n");
 
 
     while(1) {
