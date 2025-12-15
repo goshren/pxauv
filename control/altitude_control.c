@@ -2,6 +2,9 @@
 #include "../drivers/thruster/Thruster.h"
 #include <stdio.h>
 #include <math.h>
+#include <time.h> // 引入时间头文件
+
+static time_t g_last_control_time = 0; // 上次控制的时间
 
 volatile int g_altitude_control_enabled = 0;
 volatile double g_target_altitude = 0.0;
@@ -17,6 +20,9 @@ volatile double g_target_altitude = 0.0;
 
 void AltitudeControl_Start(double target) {
     g_target_altitude = target;
+    // [关键修改] 启动时重置时间戳！
+    // 这相当于告诉看门狗：“我刚启动，请给我 3秒钟 时间等传感器数据”
+    g_last_control_time = time(NULL);
     g_altitude_control_enabled = 1;
     printf("[AutoAlt] 定高模式启动，目标离底高度: %.2f 米\n", target);
 }
@@ -30,6 +36,8 @@ void AltitudeControl_Stop(void) {
 }
 
 void AltitudeControl_Loop(float current_altitude) {
+    g_last_control_time = time(NULL); // 更新时间戳
+    
     if (!g_altitude_control_enabled) return;
 
     // [安全保护] DVL 丢失底锁时通常返回 0 或 -1，或者极小值
@@ -77,5 +85,21 @@ void AltitudeControl_Loop(float current_altitude) {
         } else {
             Thruster_Sinking(THRUSTER_LEVEL_1);
         }
+    }
+}
+
+// [新增] 安全检查函数，供主循环调用
+void AltitudeControl_SafetyCheck(void) {
+    // 1. 如果没开启定深，直接退出，不消耗 CPU，也不检查传感器
+    if (!g_altitude_control_enabled) return;
+
+    time_t now = time(NULL);
+    
+    // 2. 检查超时
+    // 如果 Start() 之后 3秒内，或者上一次 Loop() 之后 3秒内
+    // 都没有新的传感器数据进来，说明传感器没开或挂了。
+    if (difftime(now, g_last_control_time) > 3.0) {
+        printf("[AutoDepth] 错误：传感器数据超时 (>3s)，可能未打开传感器？强制停止！\n");
+        AltitudeControl_Stop(); // 触发停机保护
     }
 }

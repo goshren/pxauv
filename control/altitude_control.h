@@ -12,4 +12,6 @@ void AltitudeControl_Stop(void);
 // 核心算法，被DVL线程调用
 void AltitudeControl_Loop(float current_altitude); 
 
+void AltitudeControl_SafetyCheck(void); 
+
 #endif

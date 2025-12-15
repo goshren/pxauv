@@ -4,6 +4,9 @@
 #include "../task/task_thread.h"
 /* 引入主控舱驱动头文件，以便调用上电函数 */
 #include "../drivers/maincabin/MainCabin.h"
+// 引入头文件
+#include "../control/depth_control.h"
+#include "../control/altitude_control.h"
 
 int main(int argc, const char *argv[])
 {
@@ -55,7 +58,10 @@ int main(int argc, const char *argv[])
 
 
     while(1) {
-        sleep(10); // 防止占用 CPU
+        // 每 1秒 检查一次系统安全
+        DepthControl_SafetyCheck();
+        AltitudeControl_SafetyCheck();
+        sleep(1); // 防止占用 CPU
     }
 
 end:

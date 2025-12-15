@@ -10,5 +10,6 @@ void DepthControl_Init(void);
 void DepthControl_Start(double target);
 void DepthControl_Stop(void);
 void DepthControl_Loop(double current_depth); // 核心算法，被CTD线程调用
+void DepthControl_SafetyCheck(void);
 
 #endif
