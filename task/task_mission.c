@@ -95,3 +95,8 @@ void Task_Mission_Stop(void) {
         Thruster_Stop();
     }
 }
+
+/* [新增] 查询任务是否正在运行 */
+int Task_Mission_IsRunning(void) {
+    return g_mission_running;
+}

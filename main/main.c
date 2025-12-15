@@ -7,6 +7,7 @@
 // 引入头文件
 #include "../control/depth_control.h"
 #include "../control/altitude_control.h"
+#include "../task/task_mission.h"
 
 int main(int argc, const char *argv[])
 {
@@ -55,6 +56,16 @@ int main(int argc, const char *argv[])
         goto end;
     }
     printf("GPS初始化完毕.......\n"); 
+    // ==========================================
+    // [重要] 7. 预编程自主任务初始化
+    // 如果不加这一步，USBL 收到 'M' 指令后，g_mission_running 会变 1，
+    // 但因为没有线程去轮询检查这个变量，电机将没有任何反应！
+    // ==========================================
+    if(Task_Mission_Init() < 0)
+    {
+        goto end;
+    }
+    printf("任务模块初始化完毕......\n");
 
 
     while(1) {

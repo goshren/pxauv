@@ -1,7 +1,7 @@
 /************************************************************************************
 					文件名：USBL.c
 					最后一次修改时间：2025/12/12
-					修改内容：增加调试打印、过滤$41干扰数据
+					修改内容：适配 8字节 ASCII 预编程任务协议 (U/D/L/R/F/B + 1-9)
 *************************************************************************************/
 
 #include "USBL.h"
@@ -10,6 +10,8 @@
 #include "../thruster/Thruster.h"
 /* 引入主控舱头文件，用于控制释放器 */
 #include "../../drivers/maincabin/MainCabin.h" 
+/* [新增] 引入任务管理头文件 */
+#include "../../task/task_mission.h"
 
 /************************************************************************************
  									外部变量
@@ -46,13 +48,11 @@ static struct termios g_usbl_oldSerialPortConfig = {0};
 static pthread_rwlock_t g_usbl_rwlock = PTHREAD_RWLOCK_INITIALIZER;
 
 /*	接收数据缓冲区	*/
-static char g_usbl_readbuf[128] = {0}; // 稍微加大接收缓冲区以防万一
+static char g_usbl_readbuf[128] = {0}; 
 
  /*******************************************************************
  * 函数原型:int USBL_getFD(void)
  * 函数简介:返回文件描述符
- * 函数参数:无
- * 函数返回值: 文件描述符数值
  *****************************************************************/
 int USBL_getFD(void)
 {
@@ -62,13 +62,10 @@ int USBL_getFD(void)
 
  /*******************************************************************
  * 函数原型:int USBL_Init(void)
- * 函数简介:打开USBL串口设备，并且保存旧的配置
- * 函数参数:无
- * 函数返回值: 成功返回0，失败返回-1
+ * 函数简介:打开USBL串口设备
  *****************************************************************/
 int USBL_Init(void)
 {
-	/*	0.入口检查	*/
 	if(g_usbl_deviceName == NULL || g_usbl_fd > 0)
 	{
 		return -1;
@@ -76,17 +73,15 @@ int USBL_Init(void)
 
 	g_usbl_fd = -1;
 
-	/*	1.打开串口	*/
     g_usbl_fd = SerialPort_open(g_usbl_deviceName, &g_usbl_oldSerialPortConfig);
 	if(g_usbl_fd < 0)
 	{
 		return -1;
 	}
 
-	/*	2.配置串口	*/
 	if(SerialPort_configBaseParams(g_usbl_fd, 115200,  1, 8, 'N') < 0)
 	{
-		close(g_usbl_fd);  // 关闭已打开的文件描述符
+		close(g_usbl_fd); 
         g_usbl_fd = -1;
 		return -1;
 	}
@@ -97,29 +92,23 @@ int USBL_Init(void)
 
  /*******************************************************************
  * 函数原型:int USBL_Close(void)
- * 函数简介:关闭USBL的文件描述符，调用SerialPort函数
- * 函数参数:无
- * 函数返回值:成功返回0，失败返回-1
+ * 函数简介:关闭USBL
  *****************************************************************/
 int USBL_Close(void)
 {
-	/*	0.入口检查	*/
  	if(g_usbl_fd < 0)
  	{
  		return -1;
  	}
  	
-	/*	1.关闭USBL	*/
 	pthread_rwlock_wrlock(&g_usbl_rwlock);
 	if(SerialPort_close(g_usbl_fd, &g_usbl_oldSerialPortConfig) < 0)
 	{
 		return -1;
 	}
 
-	/*	2.删除对应的监听	*/
 	epoll_manager_del_fd(g_epoll_manager_fd, g_usbl_fd);
 
-	/*3.更新文件描述符和工作状态(线程退出)*/
 	g_usbl_fd = -1;
 	g_usbl_status = -1;
 
@@ -140,12 +129,9 @@ int USBL_Close(void)
 /*******************************************************************
 * 函数原型:ssize_t USBL_ReadRawData(void)
 * 函数简介:USBL从串口读取数据
-* 函数参数:无
-* 函数返回值: 成功返回读取到的字节个数，失败就返回-1
 *****************************************************************/ 
 ssize_t USBL_ReadRawData(void)
 {
-	/* 0.入口检查 */
 	if(g_usbl_fd < 0 || g_usbl_readbuf == NULL)
 	{
 		return -1;
@@ -158,7 +144,6 @@ ssize_t USBL_ReadRawData(void)
 	int totalnByte = 0;
     char tmp_char = 0;
 
-    /* 循环读取 */
 	while(totalnByte < sizeof(g_usbl_readbuf) - 1)
 	{
 		nread = read(g_usbl_fd, &tmp_char, 1);
@@ -166,20 +151,24 @@ ssize_t USBL_ReadRawData(void)
 		{
             g_usbl_readbuf[totalnByte++] = tmp_char;
             
-            // 快速结束判断：如果指令是以 '#' 结尾 (例如 "#UP$$01#")
+            // 快速结束判断: '#' 结尾
             if(g_usbl_readbuf[0] == '#' && totalnByte > 5 && tmp_char == '#')
             {
                 break; 
             }
-            // 如果是以换行符结尾
+            // 换行符结尾
             if(tmp_char == '\n')
             {
                 break;
             }
+            // 简单保护：如果读到8个&，直接截断处理
+            if(totalnByte == 8 && strncmp(g_usbl_readbuf, "&&&&&&&&", 8) == 0) 
+            {
+                break; 
+            }
 		}
 		else
 		{
-			// 超时无数据
 			break;
 		}
 	}
@@ -192,19 +181,16 @@ ssize_t USBL_ReadRawData(void)
 
 	g_usbl_readbuf[totalnByte] = '\0';
 
-    /* [调试] 打印所有收到的原始数据，用于分析 $41 等情况 */
-	printf("[USBL DEBUG] 串口RAW: [%s] (len=%d)\n", g_usbl_readbuf, totalnByte);
-
 	/* 数据初步校验 */
     int is_valid = 0;
-    // 增加对 $41 的放行，以便在 ParseData 中统一处理（或者在这里直接放行所有 $ 开头的数据）
 	if(g_usbl_readbuf[0] == '$' && g_usbl_readbuf[totalnByte-1] == '\n') is_valid = 1;
     else if(g_usbl_readbuf[0] == '#' && g_usbl_readbuf[totalnByte-1] == '#') is_valid = 1;
     else if(g_usbl_readbuf[0] == '#') is_valid = 1;
+    // [新增] 放行 &&&&&&&&
+    else if(strncmp(g_usbl_readbuf, "&&&&&&&&", 8) == 0) is_valid = 1;
 
 	if(is_valid == 0)
 	{
-        // 打印无效数据以便排查
 		printf("[USBL WARN] 格式无效/丢弃: [%s]\n", g_usbl_readbuf);
 		memset(g_usbl_readbuf, 0, sizeof(g_usbl_readbuf));
 		tcflush(g_usbl_fd, TCIFLUSH);
@@ -216,12 +202,36 @@ ssize_t USBL_ReadRawData(void)
 	return totalnByte;
 }
 
+/* ==========================================================
+ * 辅助函数：将字符转换为动作枚举 
+ * 'U'=UP, 'D'=DOWN, 'L'=LEFT, 'R'=RIGHT, 'F'=FORWARD, 'B'=BACKWARD
+ * ========================================================== */
+static uint8_t USBL_CharToAction(char c) {
+    switch(c) {
+        case 'U': return M_ACT_UP;
+        case 'D': return M_ACT_DOWN;
+        case 'L': return M_ACT_LEFT;
+        case 'R': return M_ACT_RIGHT;
+        case 'F': return M_ACT_FORWARD; // 用 'F' 代表 "FD"
+        case 'B': return M_ACT_BACKWARD;// 用 'B' 代表 "BD"
+        default:  return M_ACT_STOP;    // 其他字符默认为停止
+    }
+}
+
+/* ==========================================================
+ * 辅助函数：将字符转换为持续时间(秒)
+ * '1'=10s, '2'=20s ... '9'=90s
+ * ========================================================== */
+static uint8_t USBL_CharToDuration(char c) {
+    if (c >= '1' && c <= '9') {
+        return (c - '0') * 10;
+    }
+    return 0; // '0' 或其他字符代表 0秒
+}
 
  /*******************************************************************
  * 函数原型:int USBL_ParseData(void)
  * 函数简介:解析USBL接收到的数据
- * 函数参数:无
- * 函数返回值:成功返回0，失败返回-1 
  *****************************************************************/
 int USBL_ParseData(void)
 {
@@ -234,12 +244,24 @@ int USBL_ParseData(void)
 	pthread_rwlock_wrlock(&g_usbl_rwlock);
 
     /* ==========================================================
+     * 0. 最高优先级中断指令：&&&&&&&&
+     * 只有这串字符可以强制打断正在执行的预编程任务
+     * ========================================================== */
+    if(strncmp(g_usbl_readbuf, "&&&&&&&&", 8) == 0)
+    {
+        printf("[USBL MISSION] 收到强制中断指令 &&&&&&&&\n");
+        Task_Mission_Stop(); // 立即停止任务
+        
+        memset(g_usbl_readbuf, 0, sizeof(g_usbl_readbuf));
+        pthread_rwlock_unlock(&g_usbl_rwlock);
+        return 0;
+    }
+
+    /* ==========================================================
      * 1. 过滤干扰数据 (如 $41 开头)
      * ========================================================== */
     if(strncmp(g_usbl_readbuf, "$41", 3) == 0)
     {
-        // 可以在这里打印，也可以选择静默丢弃
-        printf("[USBL INFO] 忽略 $41 非控制数据包\n");
         memset(g_usbl_readbuf, 0, sizeof(g_usbl_readbuf));
         pthread_rwlock_unlock(&g_usbl_rwlock);
         return 0;
@@ -250,8 +272,6 @@ int USBL_ParseData(void)
      * ========================================================== */
     if(g_usbl_readbuf[0] == '#')
     {
-        printf("[USBL PARSE] 识别为直发指令: %s\n", g_usbl_readbuf);
-        
         if(strstr(g_usbl_readbuf, "$$") != NULL)
         {
             char ctl_cmd[3] = {0}; 
@@ -279,9 +299,8 @@ int USBL_ParseData(void)
     static char lenC[3] = {0};     
     static int len = 0;
     static char temp[128] = {0};
-    static unsigned char tempHexArrey[64] = {0};
+    static unsigned char tempHexArrey[64] = {0}; // 解码后的 Payload
 
-    // 只有 $ 开头且长度足够才走这个逻辑 (避免越界)
     if(g_usbl_readbuf[0] == '$' && strlen(g_usbl_readbuf) > 38) 
     {
         memset(g_usbl_dataPack.recvdata, 0, sizeof(g_usbl_dataPack.recvdata));
@@ -292,18 +311,12 @@ int USBL_ParseData(void)
         lenC[2] = '\0';
         sscanf(lenC, "%x", &len); 
 
-        // [调试] 打印解析出的长度
-        printf("[USBL DEBUG] HEX数据长度 len: %d (0x%s)\n", len, lenC);
-
         if(len > 0 && 2*len < sizeof(temp)) 
         {
             // 复制 HEX 字符串
             strncpy(temp, g_usbl_readbuf + 39, 2 * len);
-            temp[2 * len] = '\0'; // 确保结束符
+            temp[2 * len] = '\0'; 
 
-            // [调试] 打印截取到的 HEX 串，检查位置是否正确
-            printf("[USBL DEBUG] 截取HEX串: [%s]\n", temp);
-            
             // HEX -> Char 转换
             for(int i = 0; i < 2*len; i = i + 2)
             {
@@ -313,11 +326,48 @@ int USBL_ParseData(void)
 
             memcpy(g_usbl_dataPack.recvdata, tempHexArrey, sizeof(tempHexArrey));
             
-            // [调试] 打印最终解码出的 Payload (重点观察这里)
-            printf("[USBL PAYLOAD] 解码明文: [%s]\n", tempHexArrey);
+            /* -------------------------------------------------------------
+             * [新增] 预编程任务指令解析 (8字节 ASCII)
+             * 格式: [&] [Act1] [T1] [Act2] [T2] [Act3] [T3] [&]
+             * 示例: & F 3 R 2 D 1 &  (前进30s -> 右转20s -> 下潜10s)
+             * ------------------------------------------------------------- */
+            if(len == 8 && tempHexArrey[0] == '&' && tempHexArrey[7] == '&')
+            {
+                // 1. 状态检查：如果当前有任务在跑，直接忽略新指令！
+                if(Task_Mission_IsRunning()) {
+                    printf("[USBL MISSION] 警告：任务正在执行中，新指令被拒绝！(请先发送 &&&&&&&& 中止)\n");
+                }
+                else {
+                    MissionStep_t steps[MISSION_STEP_COUNT];
+                    
+                    // 第1组动作 (Index 1, 2)
+                    steps[0].action   = USBL_CharToAction(tempHexArrey[1]);
+                    steps[0].duration = USBL_CharToDuration(tempHexArrey[2]);
 
-            /* A. 解析电机指令 */
-            if(tempHexArrey[0] == '#' && tempHexArrey[7] == '#' && tempHexArrey[3] == '$' && tempHexArrey[4] == '$')
+                    // 第2组动作 (Index 3, 4)
+                    steps[1].action   = USBL_CharToAction(tempHexArrey[3]);
+                    steps[1].duration = USBL_CharToDuration(tempHexArrey[4]);
+
+                    // 第3组动作 (Index 5, 6)
+                    steps[2].action   = USBL_CharToAction(tempHexArrey[5]);
+                    steps[2].duration = USBL_CharToDuration(tempHexArrey[6]);
+
+                    printf("[USBL MISSION] 解析成功: %c%c -> %c%c -> %c%c\n",
+                           tempHexArrey[1], tempHexArrey[2],
+                           tempHexArrey[3], tempHexArrey[4],
+                           tempHexArrey[5], tempHexArrey[6]);
+                           
+                    printf("  Step1: Act=%d, Time=%ds\n", steps[0].action, steps[0].duration);
+                    printf("  Step2: Act=%d, Time=%ds\n", steps[1].action, steps[1].duration);
+                    printf("  Step3: Act=%d, Time=%ds\n", steps[2].action, steps[2].duration);
+
+                    // 3. 启动任务
+                    Task_Mission_UpdateAndStart(steps);
+                }
+            }
+
+            /* A. 解析电机指令 (#...) */
+            else if(tempHexArrey[0] == '#' && tempHexArrey[7] == '#' && tempHexArrey[3] == '$' && tempHexArrey[4] == '$')
             {
                 char ctl_cmd[3] = {'\0'}; 
                 int ctl_arg = 0;
@@ -327,57 +377,20 @@ int USBL_ParseData(void)
                 printf("[USBL EXEC THRUSTER] 匹配成功 -> CMD:%s ARG:%d\n", ctl_cmd, ctl_arg);
                 Thruster_ControlHandle(ctl_cmd, ctl_arg);
             } 
-            /* B. 解析释放器指令 */
+            /* B. 解析释放器指令 (@...) */
             else if(tempHexArrey[0] == '@')
             {
                 char *payload_str = (char *)tempHexArrey;
-                int action_taken = 0;
-
-                if(strstr(payload_str, "open1") != NULL)
-                {
-                    printf("[USBL EXEC RELEASER] 匹配成功 -> 打开释放器1\n");
-                    MainCabin_SwitchPowerDevice(Releaser1, 1);
-                    action_taken = 1;
-                }
-                else if(strstr(payload_str, "close1") != NULL)
-                {
-                    printf("[USBL EXEC RELEASER] 匹配成功 -> 关闭释放器1\n");
-                    MainCabin_SwitchPowerDevice(Releaser1, -1);
-                    action_taken = 1;
-                }
-                else if(strstr(payload_str, "open2") != NULL)
-                {
-                    printf("[USBL EXEC RELEASER] 匹配成功 -> 打开释放器2\n");
-                    MainCabin_SwitchPowerDevice(Releaser2, 1);
-                    action_taken = 1;
-                }
-                else if(strstr(payload_str, "close2") != NULL)
-                {
-                    printf("[USBL EXEC RELEASER] 匹配成功 -> 关闭释放器2\n");
-                    MainCabin_SwitchPowerDevice(Releaser2, -1);
-                    action_taken = 1;
-                }
-
-                if(action_taken == 0)
-                {
-                     printf("[USBL WARN] 检测到 '@' 开头但未匹配到已知释放器指令: %s\n", payload_str);
-                }
-            }
-            else
-            {
-                // [调试] 如果既不是 # 也不是 @，打印出来看看是什么
-                printf("[USBL INFO] 收到 HEX 数据包，但非控制指令 (Payload: %s)\n", tempHexArrey);
+                if(strstr(payload_str, "open1") != NULL) MainCabin_SwitchPowerDevice(Releaser1, 1);
+                else if(strstr(payload_str, "close1") != NULL) MainCabin_SwitchPowerDevice(Releaser1, -1);
+                else if(strstr(payload_str, "open2") != NULL) MainCabin_SwitchPowerDevice(Releaser2, 1);
+                else if(strstr(payload_str, "close2") != NULL) MainCabin_SwitchPowerDevice(Releaser2, -1);
             }
         }
         else
         {
              printf("[USBL ERR] 解析长度 len=%d 异常或过长，跳过解析\n", len);
         }
-    }
-    // [调试] 如果以 $ 开头但长度不足
-    else if(g_usbl_readbuf[0] == '$')
-    {
-         printf("[USBL DEBUG] 收到短 $ 包 (len=%ld): %s (忽略)\n", strlen(g_usbl_readbuf), g_usbl_readbuf);
     }
 
     // 清理静态变量

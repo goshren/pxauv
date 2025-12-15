@@ -32,4 +32,7 @@ void Task_Mission_UpdateAndStart(MissionStep_t steps[MISSION_STEP_COUNT]);
 /* 安全中断停止 (USBL特殊指令调用) */
 void Task_Mission_Stop(void);
 
+/* [新增] 查询任务是否正在运行 */
+int Task_Mission_IsRunning(void);
+
 #endif
