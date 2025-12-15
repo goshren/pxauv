@@ -38,7 +38,7 @@
 
 // [新增] 必须包含这个头文件，否则会出现 implicit declaration 警告
 #include "../control/depth_control.h"
-
+#include "../control/altitude_control.h"
 /************************************************************************************
  									外部变量
 *************************************************************************************/
@@ -435,6 +435,10 @@ void *Task_ConnectHost_WorkThread(void *arg)
                     /*		解析电机推进器指令		*/
                     if(g_tcpserRecvBuf[0] == '#' && g_tcpserRecvBuf[7] == '#' && g_tcpserRecvBuf[3] == '$' && g_tcpserRecvBuf[4] == '$')	//指令判断处理
                     {
+                        // [新增] 必须添加！收到手动指令，强制结束自动定深
+                        DepthControl_Stop(); 
+                        printf("手动指令介入，自动定深已解除。\n");
+
                         char ctl_cmd[3] = {0}; 
                         int ctl_arg = 0;
 
@@ -510,6 +514,21 @@ void *Task_ConnectHost_WorkThread(void *arg)
                                 }
                         }
                     }
+                // --- [新增] 定高控制 ---
+                else if(strncmp(g_tcpserRecvBuf, "!AH:", 4) == 0) // AH = Auto Height
+                    {
+                        DepthControl_Stop(); // [互斥] 开启定高前，先关定深
+        
+                        if(strncmp(g_tcpserRecvBuf, "!AH:OFF!", 8) == 0) {
+                        AltitudeControl_Stop();
+                        } else {
+                            double target = 0.0;
+                        if(sscanf(g_tcpserRecvBuf, "!AH:%lf!", &target) == 1) {
+                        AltitudeControl_Start(target);
+                        }
+                    }
+    }
+
 
                     g_connecthost_work_flag = -1;
                 }
@@ -735,6 +754,9 @@ void *Task_DVL_WorkThread(void *arg)
                     memset(msg, 0, len);
 
                     Database_insertDVLData(g_database, &g_dvlDataPack);
+                    // 2. [新增] 触发定高控制逻辑
+                    // 1Hz 更新率，使用 buttomDistance (注意原文件拼写是 u)
+                    AltitudeControl_Loop(g_dvlDataPack.buttomDistance);
                 }
             }
             g_dvl_work_flag = -1;

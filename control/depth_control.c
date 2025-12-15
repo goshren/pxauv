@@ -32,7 +32,7 @@ void DepthControl_Loop(double current_depth) {
     // 打印调试信息，方便上位机监控
     printf("[AutoDepth] Target: %.2f, Curr: %.2f, Err: %.2f\n", g_target_depth, current_depth, error);
     // [新增] 安全保护：如果深度数据异常（例如在空气中或传感器故障），强制停止
-    if (current_depth < 0.1) { // 假设有效作业深度至少0.5米
+    if (current_depth < 0.3) { // 假设有效作业深度至少0.3米
         printf("[AutoDepth] 警告：当前深度过浅 (%.2f)，可能在水面或数据异常，暂停推进！\n", current_depth);
         Thruster_Stop();
         return;
