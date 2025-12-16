@@ -39,6 +39,7 @@
 // [新增] 必须包含这个头文件，否则会出现 implicit declaration 警告
 #include "../control/depth_control.h"
 #include "../control/altitude_control.h"
+#include "../control/navigation_control.h"
 /************************************************************************************
  									外部变量
 *************************************************************************************/
@@ -757,6 +758,9 @@ void *Task_DVL_WorkThread(void *arg)
                     // 2. [新增] 触发定高控制逻辑
                     // 1Hz 更新率，使用 buttomDistance (注意原文件拼写是 u)
                     AltitudeControl_Loop(g_dvlDataPack.buttomDistance);
+                    // [新增] 导航控制 (挂载在这里！)
+                    // 利用 DVL 提供的航向角 (heading) 进行控制
+                    Nav_Loop(g_dvlDataPack.heading);
                 }
             }
             g_dvl_work_flag = -1;

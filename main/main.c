@@ -8,6 +8,7 @@
 #include "../control/depth_control.h"
 #include "../control/altitude_control.h"
 #include "../task/task_mission.h"
+#include "../control/navigation_control.h"
 
 int main(int argc, const char *argv[])
 {
@@ -65,6 +66,10 @@ int main(int argc, const char *argv[])
     {
         goto end;
     }
+    printf("任务模块初始化完毕......\n");
+
+    // [新增] 导航模块初始化
+    Nav_Init();
     printf("任务模块初始化完毕......\n");
 
 

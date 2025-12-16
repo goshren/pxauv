@@ -12,6 +12,7 @@
 #include "../../drivers/maincabin/MainCabin.h" 
 /* [新增] 引入任务管理头文件 */
 #include "../../task/task_mission.h"
+#include "../../control/navigation_control.h"
 
 /************************************************************************************
  									外部变量
@@ -191,7 +192,6 @@ ssize_t USBL_ReadRawData(void)
 
 	if(is_valid == 0)
 	{
-		printf("[USBL WARN] 格式无效/丢弃: [%s]\n", g_usbl_readbuf);
 		memset(g_usbl_readbuf, 0, sizeof(g_usbl_readbuf));
 		tcflush(g_usbl_fd, TCIFLUSH);
 		pthread_rwlock_unlock(&g_usbl_rwlock);
@@ -365,6 +365,32 @@ int USBL_ParseData(void)
                     Task_Mission_UpdateAndStart(steps);
                 }
             }
+
+                   // [新增] B. 导航：下发目标点 (+...+) (22字节)
+    // 格式: +Lat(9)+Lon(10)+
+    else if (tempHexArrey[0] == '+' && strlen((char*)tempHexArrey) >= 21) 
+    {
+        // 停止其他模式
+        Task_Mission_Stop(); 
+        
+        double lat = 0, lon = 0;
+        // 利用 sscanf 的强大功能跳过中间的 + 号
+        if (sscanf((char*)tempHexArrey, "+%lf+%lf+", &lat, &lon) == 2) {
+            Nav_SetTarget(lat, lon);
+        } else {
+            printf("[USBL ERR] 目标坐标解析失败: %s\n", tempHexArrey);
+        }
+    }
+    
+    // [新增] C. 导航：当前定位数据 (/.../) (22字节)
+    // 格式: /Lat(9)/Lon(10)/
+    else if (tempHexArrey[0] == '/' && strlen((char*)tempHexArrey) >= 21) 
+    {
+        double lat = 0, lon = 0;
+        if (sscanf((char*)tempHexArrey, "/%lf/%lf/", &lat, &lon) == 2) {
+            Nav_UpdateCurrentPos(lat, lon);
+        }
+    }
 
             /* A. 解析电机指令 (#...) */
             else if(tempHexArrey[0] == '#' && tempHexArrey[7] == '#' && tempHexArrey[3] == '$' && tempHexArrey[4] == '$')
