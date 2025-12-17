@@ -438,8 +438,6 @@ void *Task_ConnectHost_WorkThread(void *arg)
                     {
                         // [新增] 必须添加！收到手动指令，强制结束自动定深
                         DepthControl_Stop(); 
-                        printf("手动指令介入，自动定深已解除。\n");
-
                         char ctl_cmd[3] = {0}; 
                         int ctl_arg = 0;
 

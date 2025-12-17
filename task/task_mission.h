@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#define MISSION_STEP_COUNT  3  // 定义3个动作
+#define MISSION_STEP_COUNT  3    // 定义3个动作
 
 /* 动作定义 */
 typedef enum {
