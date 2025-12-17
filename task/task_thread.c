@@ -288,7 +288,9 @@ void *Task_MainCabin_WorkThread(void *arg)
                 {
                     char *msg = MainCabin_DataPackageProcessing();
                     int len = strlen(msg);
-                    TCP_SendData(g_connecthost_tcpser_accept_sock_fd, (unsigned char *)msg, len);
+                    if(g_connecthost_tcpserConnectFlag == 1) {
+                        TCP_SendData(g_connecthost_tcpser_accept_sock_fd, (unsigned char *)msg, len);
+                    }
                     memset(msg, 0, len);
 
                     Database_insertMainCabinData(g_database, &g_maincabin_data_pack);
@@ -603,7 +605,12 @@ void *Task_GPS_WorkThread(void *arg)
                 {
                     char *msg = GPS_DataPackageProcessing();
                     int len = strlen(msg);
-                    TCP_SendData(g_connecthost_tcpser_accept_sock_fd, (unsigned char *)msg, len);
+    
+                    // [新增] 只有当标志位显示“已连接”时，才尝试发送
+                    if(g_connecthost_tcpserConnectFlag == 1) {
+                       TCP_SendData(g_connecthost_tcpser_accept_sock_fd, (unsigned char *)msg, len);
+                        }
+    
                     memset(msg, 0, len);
 
                     Database_insertGPSData(g_database, &g_gps_DataPack);
@@ -673,7 +680,9 @@ void *Task_CTD_WorkThread(void *arg)
                 {
                     char *msg = CTD_DataPackageProcessing();
                     int len = strlen(msg);
-                    TCP_SendData(g_connecthost_tcpser_accept_sock_fd, (unsigned char *)msg, len);
+                    if(g_connecthost_tcpserConnectFlag == 1) {
+                        TCP_SendData(g_connecthost_tcpser_accept_sock_fd, (unsigned char *)msg, len);
+                    }
                     memset(msg, 0, len);
                     Database_insertCTDData(g_database, &g_ctdDataPack);
                     // 2. [新增] 触发定深控制逻辑
@@ -756,7 +765,9 @@ void *Task_DVL_WorkThread(void *arg)
                 {
                     char *msg = DVL_DataPackageProcessing();
                     int len = strlen(msg);
-                    TCP_SendData(g_connecthost_tcpser_accept_sock_fd, (unsigned char *)msg, len);
+                    if(g_connecthost_tcpserConnectFlag == 1) {
+                        TCP_SendData(g_connecthost_tcpser_accept_sock_fd, (unsigned char *)msg, len);
+                    }
                     memset(msg, 0, len);
 
                     Database_insertDVLData(g_database, &g_dvlDataPack);

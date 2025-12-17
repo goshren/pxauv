@@ -162,6 +162,15 @@ int TCP_SendData(int tcpfd, const unsigned char *databuf, int datasize)
             {
                 continue; // 被信号中断，重试
             }
+            
+            // [新增] 优雅处理连接断开的情况
+            if (errno == EPIPE || errno == ECONNRESET)
+            {
+                // 对方已断开连接，这是正常现象，直接返回失败即可，不要 perror 刷屏
+                // printf("TCP: 客户端已断开 (EPIPE/RESET)\n"); // 可选：仅调试时打开
+                return -1;
+            }
+
             perror("TCP_SendData:send failed");
             return -1;
         }

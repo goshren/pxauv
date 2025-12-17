@@ -443,8 +443,8 @@ int Thruster_Stop(void) {
 *****************************************************************/
 int Thruster_Floating(ThrusterPowerLevel level)
 {
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_1, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_2, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_1, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_2, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, level, THRUSTER_DIR_BACKWARD) < 0) return -1;
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, level, THRUSTER_DIR_BACKWARD) < 0) return -1;
     printf("推进器：上浮，档位：%d\n", level);
@@ -460,8 +460,8 @@ int Thruster_Floating(ThrusterPowerLevel level)
 *****************************************************************/
 int Thruster_Sinking(ThrusterPowerLevel level) 
 {
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_1, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_2, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_1, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_2, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, level, THRUSTER_DIR_FORWARD) < 0) return -1;
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, level, THRUSTER_DIR_FORWARD) < 0) return -1;
     printf("推进器：下沉，档位：%d\n", level);
@@ -479,8 +479,8 @@ int Thruster_Forward(ThrusterPowerLevel level)
 {
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_1, level, THRUSTER_DIR_FORWARD) < 0) return -1;
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_2, level, THRUSTER_DIR_FORWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
     printf("推进器：前进，档位：%d\n", level);
     return 0;
 }
@@ -496,8 +496,8 @@ int Thruster_Backward(ThrusterPowerLevel level)
 {
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_1, level, THRUSTER_DIR_BACKWARD) < 0) return -1;
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_2, level, THRUSTER_DIR_BACKWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
     printf("推进器：后退，档位：%d\n", level);
     return 0;
 }
@@ -513,8 +513,8 @@ int Thruster_TurnLeft(ThrusterPowerLevel level)
 {
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_1, level, THRUSTER_DIR_FORWARD) < 0) return -1;
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_2, level, THRUSTER_DIR_BACKWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
     printf("推进器：左转，档位：%d\n", level);
     return 0;
 }
@@ -530,8 +530,8 @@ int Thruster_TurnRight(ThrusterPowerLevel level)
 {
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_1, level, THRUSTER_DIR_BACKWARD) < 0) return -1;
     if (Thruster_SetMotorPower(THRUSTER_MOTOR_2, level, THRUSTER_DIR_FORWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    //if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
     printf("推进器：右转，档位：%d\n", level);
     return 0;
 }
