@@ -60,7 +60,7 @@ void Nav_Stop(void) {
     if (g_nav_control_enabled) {
         g_nav_control_enabled = 0;
         g_nav_state = NAV_STATE_IDLE;
-        Thruster_Stop();
+        Thruster_StopHorizontal(); // [修改] 导航结束只停水平，不让机器人掉下来
         printf("[AutoNav] 导航已停止。\n");
     }
 }
@@ -138,9 +138,9 @@ void Nav_Loop(float current_heading) {
 
         case NAV_STATE_ARRIVED:
             // 阶段C：到达
-            Thruster_Stop();
+            Thruster_StopHorizontal(); 
             printf("[AutoNav] 到达目标点！停止推进。\n");
-            g_nav_control_enabled = 0; // 任务结束
+            g_nav_control_enabled = 0; 
             break;
             
         default:

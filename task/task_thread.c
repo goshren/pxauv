@@ -40,6 +40,7 @@
 #include "../control/depth_control.h"
 #include "../control/altitude_control.h"
 #include "../control/navigation_control.h"
+#include "../task/task_mission.h"
 /************************************************************************************
  									外部变量
 *************************************************************************************/
@@ -433,20 +434,23 @@ void *Task_ConnectHost_WorkThread(void *arg)
                     g_tcpserRecvBuf[recvDataSize] = '\0';
                     printf("tcp server recv size:%d recv data:%s\n", recvDataSize, g_tcpserRecvBuf);
 
-                    /*		解析电机推进器指令		*/
-                    if(g_tcpserRecvBuf[0] == '#' && g_tcpserRecvBuf[7] == '#' && g_tcpserRecvBuf[3] == '$' && g_tcpserRecvBuf[4] == '$')	//指令判断处理
+                  /* 1. 解析电机推进器指令 (手动控制) */
+                    if(g_tcpserRecvBuf[0] == '#' && g_tcpserRecvBuf[7] == '#' && g_tcpserRecvBuf[3] == '$' && g_tcpserRecvBuf[4] == '$')
                     {
-                        // [新增] 必须添加！收到手动指令，强制结束自动定深
-                        DepthControl_Stop(); 
+                        // [关键修改] 手动模式优先级最高，强制关闭所有自动任务
+                        DepthControl_Stop();      // 关定深
+                        AltitudeControl_Stop();   // 关定高
+                        Nav_Stop();               // 关导航
+                        Task_Mission_Stop();      // 关预编程任务 (防止死循环)
+                        
                         char ctl_cmd[3] = {0}; 
                         int ctl_arg = 0;
-
                         sscanf(&g_tcpserRecvBuf[1], "%2s", ctl_cmd);
                         sscanf(&g_tcpserRecvBuf[5], "%2d", &ctl_arg);
                         Thruster_ControlHandle(ctl_cmd, ctl_arg);
                     }
 
-                    /*		解析主控舱传感器供电指令		*/
+                    /*		2.解析主控舱传感器供电指令		*/
                     else if(g_tcpserRecvBuf[0] == '=' && g_tcpserRecvBuf[recvDataSize-1] == '=')
                     {
                         if(strstr(g_tcpserRecvBuf, "open") != NULL)
@@ -461,7 +465,7 @@ void *Task_ConnectHost_WorkThread(void *arg)
                         }
                     }
 
-                    /*		解析释放器打开和关闭			*/
+                    /*		3.解析释放器打开和关闭			*/
                     else if(g_tcpserRecvBuf[0] == '@' && g_tcpserRecvBuf[recvDataSize-1] == '@')
                     {
                         if(strstr(g_tcpserRecvBuf, "open1") != NULL)
@@ -494,39 +498,42 @@ void *Task_ConnectHost_WorkThread(void *arg)
                         }
                     }
 
-                    /* 新增：解析定深控制指令  */
-                // 假设 g_tcpserRecvBuf 是接收缓冲区
-                else if(g_tcpserRecvBuf[0] == '!' && g_tcpserRecvBuf[recvDataSize-1] == '!')
+                    /* 4. 解析定深控制指令 */
+                    else if(g_tcpserRecvBuf[0] == '!' && g_tcpserRecvBuf[recvDataSize-1] == '!')
                     {
-                    if(strncmp(g_tcpserRecvBuf, "!AD:OFF!", 8) == 0)
+                        if(strncmp(g_tcpserRecvBuf, "!AD:OFF!", 8) == 0)
                         {
-                         DepthControl_Stop(); // 停止定深函数
-                            printf("定深模式已关闭\n");
+                             DepthControl_Stop(); 
+                             printf("定深模式已关闭\n");
                         }
-                    else if(strncmp(g_tcpserRecvBuf, "!AD:", 4) == 0)
+                        else if(strncmp(g_tcpserRecvBuf, "!AD:", 4) == 0)
                         {
-                         double target = 0.0;
+                             // [关键修改] 开启定深前，必须强制关闭定高！
+                             AltitudeControl_Stop(); 
+                             
+                             double target = 0.0;
                              if(sscanf(g_tcpserRecvBuf, "!AD:%lf!", &target) == 1)
-                                {
-                                DepthControl_Start(target); // 启动定深函数
-                                    printf("收到定深指令，目标深度: %.2f 米\n", target);
-                                }
+                             {
+                                 DepthControl_Start(target);
+                                 printf("收到定深指令，目标深度: %.2f 米\n", target);
+                             }
                         }
                     }
-                // --- [新增] 定高控制 ---
-                else if(strncmp(g_tcpserRecvBuf, "!AH:", 4) == 0) // AH = Auto Height
+                    /* 5. 解析定高控制指令 */
+                    else if(strncmp(g_tcpserRecvBuf, "!AH:", 4) == 0) 
                     {
-                        DepthControl_Stop(); // [互斥] 开启定高前，先关定深
+                        // [关键修改] 开启定高前，必须强制关闭定深！
+                        DepthControl_Stop(); 
         
                         if(strncmp(g_tcpserRecvBuf, "!AH:OFF!", 8) == 0) {
-                        AltitudeControl_Stop();
+                            AltitudeControl_Stop();
                         } else {
                             double target = 0.0;
-                        if(sscanf(g_tcpserRecvBuf, "!AH:%lf!", &target) == 1) {
-                        AltitudeControl_Start(target);
+                            if(sscanf(g_tcpserRecvBuf, "!AH:%lf!", &target) == 1) {
+                                AltitudeControl_Start(target);
+                            }
                         }
                     }
-    }
 
 
                     g_connecthost_work_flag = -1;

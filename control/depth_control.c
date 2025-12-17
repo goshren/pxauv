@@ -49,11 +49,10 @@ void DepthControl_Loop(double current_depth) {
         return;
     }
 
-    // 1. 进入死区 (已到达目标附近)
+    // 1. 进入死区
     if (fabs(error) <= DEAD_ZONE) {
-        // 如果是正浮力机器人，可能需要 Thruster_Sinking(1) 来维持
         if (BUOYANCY_COMPENSATION_LEVEL == THRUSTER_STOP) {
-             Thruster_Stop();
+             Thruster_StopVertical(); // [修改] 只停垂直，不影响水平导航
         } else {
              Thruster_Sinking(BUOYANCY_COMPENSATION_LEVEL);
         }

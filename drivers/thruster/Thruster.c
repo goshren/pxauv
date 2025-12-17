@@ -403,31 +403,36 @@ int Thruster_SetMotorPower(ThrusterMotorID motor, ThrusterPowerLevel level, Thru
 }
 
 
+// [新增] 仅停止水平电机 (用于导航到达、手动接管水平方向)
+int Thruster_StopHorizontal(void) {
+    if (Thruster_SetMotorPower(THRUSTER_MOTOR_1, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    if (Thruster_SetMotorPower(THRUSTER_MOTOR_2, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
+    printf("推进器：水平电机停止\n");
+    return 0;
+}
+
+// [新增] 仅停止垂直电机 (用于定深/定高到达、手动接管垂直方向)
+int Thruster_StopVertical(void) {
+    if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, THRUSTER_STOP, THRUSTER_DIR_BACKWARD) < 0) return -1;
+    if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, THRUSTER_STOP, THRUSTER_DIR_BACKWARD) < 0) return -1;
+    printf("推进器：垂直电机停止\n");
+    return 0;
+}
 /*******************************************************************
 * 函数原型:int Thruster_Stop(void)
 * 函数简介:停止所有电机。
 * 函数参数:无
 * 函数返回值:成功返回0，失败返回-1。
 *****************************************************************/
-int Thruster_Stop(void) 
-{
-#if 0
-    int ret = -1;
-    ret = Thruster_SetMotorPower(THRUSTER_ALL_MOTORS, THRUSTER_STOP, THRUSTER_DIR_FORWARD);
-    if(ret == 0)
-    {
-        printf("推进器：停止\n");
-        return 0;
-    }
-#endif
-
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_1, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_2, THRUSTER_STOP, THRUSTER_DIR_FORWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_3, THRUSTER_STOP, THRUSTER_DIR_BACKWARD) < 0) return -1;
-    if (Thruster_SetMotorPower(THRUSTER_MOTOR_4, THRUSTER_STOP, THRUSTER_DIR_BACKWARD) < 0) return -1;
-    printf("推进器：停止\n");
+int Thruster_Stop(void) {
+    int ret1 = Thruster_StopHorizontal();
+    int ret2 = Thruster_StopVertical();
+    if (ret1 < 0 || ret2 < 0) return -1;
+    printf("推进器：全部停止\n");
     return 0;
 }
+
+
 
 
 /*******************************************************************

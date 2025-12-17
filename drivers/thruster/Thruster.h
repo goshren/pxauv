@@ -69,6 +69,10 @@ int Thruster_SetMotorPower(ThrusterMotorID motor, ThrusterPowerLevel level, Thru
 
 /*  运动控制    */
 int Thruster_Stop(void);
+// [新增] 仅停止水平电机 (1, 2号)
+int Thruster_StopHorizontal(void);
+// [新增] 仅停止垂直电机 (3, 4号)
+int Thruster_StopVertical(void);
 int Thruster_Floating(ThrusterPowerLevel level);
 int Thruster_Sinking(ThrusterPowerLevel level);
 int Thruster_Forward(ThrusterPowerLevel level);

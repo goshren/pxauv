@@ -58,9 +58,9 @@ void AltitudeControl_Loop(float current_altitude) {
     // 1. 死区判断
     if (fabs(error) <= ALT_DEAD_ZONE) {
         if (ALT_BUOYANCY_COMPENSATION == THRUSTER_STOP) {
-             Thruster_Stop();
+             Thruster_StopVertical(); // [修改] 只停垂直
         } else {
-             Thruster_Sinking(ALT_BUOYANCY_COMPENSATION); // 对抗正浮力
+             Thruster_Sinking(ALT_BUOYANCY_COMPENSATION);
         }
         return;
     }

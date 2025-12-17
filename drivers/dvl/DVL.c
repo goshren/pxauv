@@ -613,7 +613,7 @@ void DVL_PrintAllData(void)
     printf("TIME: %d-%02d-%02d %02d:%02d:%02d\n",nowtime->tm_year + 1900,nowtime->tm_mon + 1,nowtime->tm_mday,\
     											nowtime->tm_hour,nowtime->tm_min,nowtime->tm_sec);
 	
-	printf("************DVL数据信息**************\n");
+/*	printf("************DVL数据信息**************\n");
 	printf("俯仰:%f °\n", g_dvlDataPack.pitch);
 	printf("横滚:%f °\n", g_dvlDataPack.roll);
 	printf("艏向:%f °\n", g_dvlDataPack.heading);
@@ -623,6 +623,7 @@ void DVL_PrintAllData(void)
 	printf("Z轴速度:%f mm/s\n", g_dvlDataPack.speedZ);
 	printf("高度:%f m\n", g_dvlDataPack.buttomDistance);
 	printf("************************************\n");
+*/
 }
 
 
