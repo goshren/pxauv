@@ -13,6 +13,8 @@
 /* [新增] 引入任务管理头文件 */
 #include "../../task/task_mission.h"
 #include "../../control/navigation_control.h"
+#include "../../control/depth_control.h"    
+#include "../../control/altitude_control.h" 
 
 /************************************************************************************
  									外部变量
@@ -411,6 +413,62 @@ int USBL_ParseData(void)
                 else if(strstr(payload_str, "close1") != NULL) MainCabin_SwitchPowerDevice(Releaser1, -1);
                 else if(strstr(payload_str, "open2") != NULL) MainCabin_SwitchPowerDevice(Releaser2, 1);
                 else if(strstr(payload_str, "close2") != NULL) MainCabin_SwitchPowerDevice(Releaser2, -1);
+            }
+            /* ==========================================================
+             * [新增] D. 定深/定高控制 (!AD:... / !AH:...)
+             * 格式参考 TCP: !AD:1.5! 或 !AH:OFF!
+             * ========================================================== */
+            else if(tempHexArrey[0] == '!' && strlen((char*)tempHexArrey) >= 8)
+            {
+                // 1. 安全动作：凡是设置定深定高，先停止任务和导航，防止冲突
+                Task_Mission_Stop(); 
+                Nav_Stop();
+
+                char *cmd_str = (char*)tempHexArrey;
+                
+                // --- 解析定深指令 ---
+                if(strncmp(cmd_str, "!AD:", 4) == 0)
+                {
+                    // 必须先关闭定高，防止互斥
+                    AltitudeControl_Stop();
+
+                    if(strncmp(cmd_str, "!AD:OFF!", 8) == 0)
+                    {
+                        DepthControl_Stop();
+                        printf("[USBL] 定深模式已关闭\n");
+                    }
+                    else
+                    {
+                        double target = 0.0;
+                        // 从字符串中提取浮点数
+                        if(sscanf(cmd_str, "!AD:%lf!", &target) == 1)
+                        {
+                            DepthControl_Start(target);
+                            printf("[USBL] 定深启动，目标: %.2f 米\n", target);
+                        }
+                    }
+                }
+                // --- 解析定高指令 ---
+                else if(strncmp(cmd_str, "!AH:", 4) == 0)
+                {
+                    // 必须先关闭定深，防止互斥
+                    DepthControl_Stop();
+
+                    if(strncmp(cmd_str, "!AH:OFF!", 8) == 0)
+                    {
+                        AltitudeControl_Stop();
+                        printf("[USBL] 定高模式已关闭\n");
+                    }
+                    else
+                    {
+                        double target = 0.0;
+                        if(sscanf(cmd_str, "!AH:%lf!", &target) == 1)
+                        {
+                            AltitudeControl_Start(target);
+                            printf("[USBL] 定高启动，目标: %.2f 米\n", target);
+                        }
+                    }
+                }
             }
         }
         else
