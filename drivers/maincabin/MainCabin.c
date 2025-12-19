@@ -16,12 +16,15 @@
 #include "../dtu/DTU.h"
 #include "../usbl/USBL.h"
 #include "../sonar/Sonar.h"
+#include "../../sys/epoll/epoll_manager.h"
 
 /************************************************************************************
  									全局变量(其他文件可使用)
 *************************************************************************************/
 /*	设备的文件描述符	*/
 int g_maincabin_tcpclisock_fd = -1;						//作为客户端的文件描述符
+
+extern int g_epoll_manager_fd; // 引用外部变量
 
 /*	与服务器端连接的状态	*/
 volatile int g_maincabin_tcpcliConnectFlag = -1;		//-1为未连接，1为已连接
@@ -156,6 +159,42 @@ int MainCabin_Init(void)
 }
 
 
+/* 重连处理函数 */
+int MainCabin_ReConnect(void)
+{
+    // 1. 关闭旧的 socket
+    if(g_maincabin_tcpclisock_fd > 0)
+    {
+        // 从 epoll 中移除
+        epoll_manager_del_fd(g_epoll_manager_fd, g_maincabin_tcpclisock_fd);
+        close(g_maincabin_tcpclisock_fd);
+        g_maincabin_tcpclisock_fd = -1;
+    }
+    
+    g_maincabin_tcpcliConnectFlag = -1; // 标记为未连接
+
+    printf("[MainCabin] 尝试重连服务器 %s:%d ...\n", TCP_MAINCABIN_IP, TCP_MAINCABIN_PORT);
+
+    // 2. 重新建立连接
+    g_maincabin_tcpclisock_fd = TCP_InitClient(TCP_MAINCABIN_IP, TCP_MAINCABIN_PORT);
+    if(g_maincabin_tcpclisock_fd < 0)
+    {
+        return -1; // 重连失败
+    }
+
+    // 3. 重新加入 Epoll 监听
+    if(epoll_manager_add_fd(g_epoll_manager_fd, g_maincabin_tcpclisock_fd, EPOLLIN) < 0)
+    {
+        close(g_maincabin_tcpclisock_fd);
+        return -1;
+    }
+
+    g_maincabin_tcpcliConnectFlag = 1; // 标记为已连接
+    printf("[MainCabin] 重连成功！\n");
+    return 0;
+}
+
+
 /*******************************************************************
 * 函数原型:int MainCabin_SwitchPowerDevice(MainCabin_Control_DeviceID id, int power)
 * 函数简介:供电/断电某个设备。
@@ -165,6 +204,7 @@ int MainCabin_Init(void)
 *****************************************************************/
 int MainCabin_SwitchPowerDevice(MainCabin_Control_DeviceID id, int power)
 {
+	if(g_maincabin_tcpcliConnectFlag != 1) return -1; // 如果没连接，直接返回失败
 	/*	0.入口检查	*/
 	if(g_maincabin_tcpcliConnectFlag != 1 || g_maincabin_tcpclisock_fd < 0 || (power != -1 && power != 1) || (id < 0 || id > 6))
 	{
@@ -215,6 +255,13 @@ int MainCabin_SwitchPowerDevice(MainCabin_Control_DeviceID id, int power)
 		while(sendtry--)
 		{
 			ret = TCP_SendData(g_maincabin_tcpclisock_fd, g_control_power_cmd[id][0], sizeof(g_control_power_cmd[0][0]));
+			if(ret < 0) 
+    		{
+        	// [新增] 发送失败也认为是断开
+       		 printf("[MainCabin] 发送指令失败，连接可能已断开\n");
+        	 g_maincabin_tcpcliConnectFlag = -1; 
+        	 return -1;
+    		}
 			if(ret == sizeof(g_control_power_cmd[0][0]))
 			{
 				*temp = 1;
@@ -234,6 +281,13 @@ int MainCabin_SwitchPowerDevice(MainCabin_Control_DeviceID id, int power)
 		while(sendtry--)
 		{
 			ret = TCP_SendData(g_maincabin_tcpclisock_fd, g_control_power_cmd[id][1], sizeof(g_control_power_cmd[0][0]));
+			if(ret < 0) 
+    		{
+        	// [新增] 发送失败也认为是断开
+       		 printf("[MainCabin] 发送指令失败，连接可能已断开\n");
+        	 g_maincabin_tcpcliConnectFlag = -1; 
+        	 return -1;
+    		}
 			if(ret == sizeof(g_control_power_cmd[0][0]))
 			{
 				*temp = -1;
@@ -388,31 +442,28 @@ int MainCabin_PowerOffAllDeviceExceptReleaser(void)
 *****************************************************************/
 int MainCabin_ReadRawData(void)
 {
-	/*	0.入口检查	*/
-	if(g_maincabin_tcpcliConnectFlag != 1 || g_maincabin_tcpclisock_fd < 0 || g_maincabin_readbuf == NULL)		//未连接 和 文件描述符错误
-	{
-		return -1;
-	}
+    // ... 原有入口检查 ...
+    if(g_maincabin_tcpcliConnectFlag != 1 || g_maincabin_tcpclisock_fd < 0) return -1;
 
-	/*	1.数据读取	*/
-	memset(g_maincabin_readbuf, 0, sizeof(g_maincabin_readbuf));
-	pthread_rwlock_wrlock(&g_maincabin_rwlock);
-	int  nbyte = TCP_RecvData_Block(g_maincabin_tcpclisock_fd, g_maincabin_readbuf, sizeof(g_maincabin_readbuf),\
-															g_maincabin_data_protocol.length);
+    memset(g_maincabin_readbuf, 0, sizeof(g_maincabin_readbuf));
+    pthread_rwlock_wrlock(&g_maincabin_rwlock);
+    
+    // 调用接收
+    int nbyte = TCP_RecvData_Block(g_maincabin_tcpclisock_fd, g_maincabin_readbuf, sizeof(g_maincabin_readbuf), g_maincabin_data_protocol.length);
 
-					
-	
-	/*	2.数据检查	*/
-	if(nbyte != g_maincabin_data_protocol.length)
-	{
-		memset(g_maincabin_readbuf, 0, sizeof(g_maincabin_readbuf));
-		strcpy((char *)g_maincabin_readbuf, "invalid");
-		pthread_rwlock_unlock(&g_maincabin_rwlock);
-		return -1;
-	}
-	pthread_rwlock_unlock(&g_maincabin_rwlock);
-
-	return 0;
+    // [关键修改] 如果接收失败（返回-1）或 长度不对
+    if(nbyte != g_maincabin_data_protocol.length)
+    {
+        printf("[MainCabin] 读取错误或连接断开 (nbyte=%d)\n", nbyte);
+        
+        // 标记连接断开，以便下次循环触发重连
+        g_maincabin_tcpcliConnectFlag = -1; 
+        
+        pthread_rwlock_unlock(&g_maincabin_rwlock);
+        return -1;
+    }
+    pthread_rwlock_unlock(&g_maincabin_rwlock);
+    return 0;
 }
 
 

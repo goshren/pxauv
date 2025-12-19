@@ -10,6 +10,9 @@
 #include "../task/task_mission.h"
 #include "../control/navigation_control.h"
 
+extern volatile int g_maincabin_tcpcliConnectFlag;
+extern int MainCabin_ReConnect(void);
+
 int main(int argc, const char *argv[])
 {
     printf("程序正在运行......\n");
@@ -77,6 +80,12 @@ int main(int argc, const char *argv[])
         // 每 1秒 检查一次系统安全
         DepthControl_SafetyCheck();
         AltitudeControl_SafetyCheck();
+        // 2. [新增] 主控舱断线重连检测
+        if(g_maincabin_tcpcliConnectFlag == -1)
+        {
+            // 尝试重连（非阻塞或快速返回）
+            MainCabin_ReConnect();
+        }
         sleep(1); // 防止占用 CPU
     }
 

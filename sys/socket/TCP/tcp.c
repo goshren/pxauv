@@ -3,7 +3,7 @@
                     文件说明：主要编写TCP客户端、服务器、发送数据的代码
                     最后一次修改时间：2025/6/27
 *************************************************************************************/
-
+#include<netinet/tcp.h>
 #include "tcp.h"
 
 /*******************************************************************
@@ -23,6 +23,19 @@ int TCP_InitClient(char *ipaddr , unsigned short int port)
         perror("TCP_InitClient:socket error");
         return -1;
     }
+
+    // [sys/socket/TCP/tcp.c] -> TCP_InitClient 函数中
+
+    /* 1.5 设置 KeepAlive (新增) */
+    int keepAlive = 1;      // 开启 KeepAlive
+    int keepIdle = 5;       // 如该连接在 5 秒内没有任何数据往来,则进行探测
+    int keepInterval = 1;   // 探测时发包的时间间隔为 1 秒
+    int keepCount = 3;      // 探测尝试的次数。如果第1次探测包就收到响应则后2次不再发
+
+    setsockopt(tcp_clientfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepAlive, sizeof(keepAlive));
+    setsockopt(tcp_clientfd, SOL_TCP, TCP_KEEPIDLE, (void*)&keepIdle, sizeof(keepIdle));
+    setsockopt(tcp_clientfd, SOL_TCP, TCP_KEEPINTVL, (void *)&keepInterval, sizeof(keepInterval));
+    setsockopt(tcp_clientfd, SOL_TCP, TCP_KEEPCNT, (void *)&keepCount, sizeof(keepCount));
 
     /*  2.设置端口复用  */
     int optval = 1;                                 // 这里设置为端口复用，所以随便写一个值

@@ -230,13 +230,21 @@ void DTU_ParseData(void)
         // 判断具体的控制指令
         if(strstr((char *)g_dtu_recvbuf, "open1") != NULL)
         {
-            MainCabin_SwitchPowerDevice(Releaser1, 1);
-            printf("DTU指令: 释放器1已打开\n");
+			int ret1 = MainCabin_SwitchPowerDevice(Releaser1, 1); // 获取返回值
+    		if(ret1 == 0) {
+        		printf("DTU指令成功: 释放器1已打开\n");
+    			} else {
+        	printf("DTU指令失败: 释放器1打开失败! (主控舱通信异常)\n");
+    		}
         }
         else if(strstr((char *)g_dtu_recvbuf, "open2") != NULL)
         {
-            MainCabin_SwitchPowerDevice(Releaser2, 1);
-            printf("DTU指令: 释放器2已打开\n");
+        	int ret2 = MainCabin_SwitchPowerDevice(Releaser2, 1);
+            if(ret2 == 0) {
+        		printf("DTU指令成功: 释放器1已关闭\n");
+    			} else {
+        	printf("DTU指令失败: 释放器1关闭失败! (主控舱通信异常)\n");
+    		}
         }
         else if(strstr((char *)g_dtu_recvbuf, "close1") != NULL)
         {

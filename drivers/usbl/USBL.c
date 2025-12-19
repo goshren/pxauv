@@ -432,7 +432,7 @@ int USBL_ParseData(void)
                     // 必须先关闭定高，防止互斥
                     AltitudeControl_Stop();
 
-                    if(strncmp(cmd_str, "!AD:OFF!", 8) == 0)
+                    if(strncmp(cmd_str, "!AD:OFFF!", 9) == 0)
                     {
                         DepthControl_Stop();
                         printf("[USBL] 定深模式已关闭\n");
@@ -454,7 +454,7 @@ int USBL_ParseData(void)
                     // 必须先关闭定深，防止互斥
                     DepthControl_Stop();
 
-                    if(strncmp(cmd_str, "!AH:OFF!", 8) == 0)
+                    if(strncmp(cmd_str, "!AH:OFFF!", 9) == 0)
                     {
                         AltitudeControl_Stop();
                         printf("[USBL] 定高模式已关闭\n");

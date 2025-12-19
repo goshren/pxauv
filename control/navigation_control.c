@@ -14,7 +14,7 @@
 #define NAV_ALIGN_THRESHOLD  15.0  // 对准阈值：航向误差 < 15度 允许直行
 #define NAV_RE_ALIGN_TRIGGER 30.0  // 重新对准阈值：航向误差 > 30度 切换回原地旋转
 #define NAV_ARRIVAL_DIST     3.0   // 到达阈值：距离 < 3米 视为到达
-#define NAV_DATA_TIMEOUT     5.0   // 数据超时时间 (秒)
+#define NAV_DATA_TIMEOUT     10.0   // 数据超时时间 (秒)
 
 /* 状态变量 */
 volatile int g_nav_control_enabled = 0;
